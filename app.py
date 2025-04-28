@@ -11,10 +11,10 @@ import plotly.io as pio
 
 # Read and prepare the dataset
 
-station_data = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/avg_data.csv")
-station_data_month = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/avg_data_month_year.csv")
+station_data = pd.read_csv("avg_data.csv")
+station_data_month = pd.read_csv("avg_data_month_year.csv")
 station_data = station_data.dropna(subset=['lat', 'lon']).fillna(0)
-cig_data = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/cig_data.csv")
+cig_data = pd.read_csv("cig_data.csv")
 
 # Aggregate data by station and month
 cig_aggregated_data = cig_data.groupby(['name', 'month', 'year']).agg({'Cigarettes': 'mean'}).reset_index()
