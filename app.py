@@ -6,27 +6,25 @@ import plotly.graph_objects as go
 from prophet import Prophet
 import pandas as pd
 import matplotlib.pyplot as plt
-import plotly.io as pio
-
 
 # Read and prepare the dataset
 
-station_data = pd.read_csv("avg_data.csv")
-station_data_month = pd.read_csv("avg_data_month_year.csv")
+station_data = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/avg_data_day.csv")
 station_data = station_data.dropna(subset=['lat', 'lon']).fillna(0)
-cig_data = pd.read_csv("cig_data.csv")
 
 # Aggregate data by station and month
-cig_aggregated_data = cig_data.groupby(['name', 'month', 'year']).agg({'Cigarettes': 'mean'}).reset_index()
+cig_aggregated_data = station_data.groupby(['name', 'month', 'year']).agg({'Cigarettes': 'mean'}).reset_index()
+cig_aggregated_data = cig_aggregated_data.dropna(subset=['Cigarettes'])
+cig_aggregated_data = cig_aggregated_data[cig_aggregated_data['Cigarettes'] != 0]
+
 
 # Calculate the global maximum for Cigarette Equivalents
 global_max_value = cig_aggregated_data['Cigarettes'].max()
 
-
 pollutants = ["BEN", "CO", "NO_2", "SO_2", "O_3", "PM25", "PM10"]
 
 # Group by year and calculate the average for each pollutant
-average_data_month = station_data_month.groupby(['year', 'month'])[pollutants].mean().reset_index()
+average_data_month = station_data.groupby(['year', 'month'])[pollutants].mean().reset_index()
 average_data = station_data.groupby('year')[pollutants].mean().reset_index()
 baseline_data = average_data[average_data['year'] == 2001]
 
@@ -59,7 +57,6 @@ pollutant_thresholds = {
 global_x_min = cig_aggregated_data['Cigarettes'].min()
 global_x_max = cig_aggregated_data['Cigarettes'].max()
 
-
 # Initialize a dictionary to store forecasts for each pollutant
 forecasts = {}
 
@@ -80,7 +77,8 @@ for pollutant in pollutants:
 
 # Create the Dash app
 app = dash.Dash(__name__)
-server = app.server 
+server = app.server # for render
+
 # App layout
 app.layout = html.Div([
     html.H1("Interactive Pollution Dashboard", style={'textAlign': 'center'}),
@@ -163,7 +161,7 @@ def update_map(selected_pollutant):
     ],
     range_color=(0, 50)  # Adjust range to fit pollutant levels
     )
-    fig.update_layout(height=1200)
+    fig.update_layout(height=900)
     return fig
 
 # Callback to update the line chart based on dropdown selection
@@ -298,7 +296,7 @@ def update_graph(selected_month, selected_year):
         hovertemplate=(
             "Station: %{y}<br>"
             "Month: %{x}<br>"
-            "Cigarette Equivalents: %{text}<extra></extra>"
+            "Average Daily Cigarette Equivalent : %{text}<extra></extra>"
         )
     ))
 
@@ -333,6 +331,8 @@ def update_graph(selected_month, selected_year):
     )
 
     return fig
+
+
 
 # Run the app
 if __name__ == '__main__':
