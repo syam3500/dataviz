@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Read and prepare the dataset
 
-station_data = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/avg_data_day.csv")
+station_data = pd.read_csv("avg_data_day.csv")
 station_data = station_data.dropna(subset=['lat', 'lon']).fillna(0)
 
 # Aggregate data by station and month
