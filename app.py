@@ -155,9 +155,9 @@ def update_map(selected_pollutant):
         animation_frame="year",
         title=f"Pollution Levels by Station ({selected_pollutant})",
         color_continuous_scale=[
-        (0.0, "green"),  # Low values are green
-        (0.5, "yellow"),  # Medium values are yellow
-        (1.0, "red")  # High values are red
+        (0.0, "#3B4CC0"),  # Low values are dark blue
+        (0.5, "#F4A259"),  # Medium values are orange
+        (1.0, "#D7263D")  # High values are dark red
     ],
     range_color=(0, 50)  # Adjust range to fit pollutant levels
     )
