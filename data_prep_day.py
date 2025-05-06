@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 all_merged_data = []
 
 # Read stations.csv
-station_data = pd.read_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/stations.csv")
+station_data = pd.read_csv("stations.csv")
 
 # Loop through files from 2001 to 2018
 for year in range(2001, 2019):
-    file_name = f"/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/madrid_{year}.csv"
+    file_name = f"madrid_{year}.csv"
     
     # Read the year's data
     yearly_data = pd.read_csv(file_name)
