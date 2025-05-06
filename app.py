@@ -68,7 +68,7 @@ for pollutant in pollutants:
     df = df[['ds', 'y']]
     
     from prophet import Prophet
-    model = Prophet()
+    model = Prophet(interval_width=0.95)
     model.fit(df)
     future = model.make_future_dataframe(periods=12 * (2030 - 2018), freq='ME')
     forecast = model.predict(future)
