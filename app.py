@@ -93,8 +93,9 @@ app.layout = html.Div([
                     value='PM10'  # Default pollutant
                 ),
                 dcc.Graph(id='map-graph')
-            ]),
+            ])
         ]),
+        
         dcc.Tab(label='Line Chart of Pollutants', children=[
             html.Div([
                 html.Label("Select Pollutant for Line Chart:"),
@@ -104,9 +105,30 @@ app.layout = html.Div([
                             [{'label': pollutant, 'value': pollutant} for pollutant in pollutants],
                     value='All'  # Default to "All"
                 ),
+                dcc.Dropdown(
+                    id='view-dropdown',
+                    options=[
+                        {'label': 'Percentage Change (%)', 'value': 'Percentage'},
+                        {'label': 'Concentration (µg/m³)', 'value': 'Concentration'}
+                    ],
+                    value='Percentage'  # Default: Percentage view
+                ),
                 dcc.Graph(id='line-graph')
-            ]),
+            ])
         ]),
+
+        dcc.Tab(label='Seasonal Pollution Patterns', children=[
+            html.Div([
+                html.Label("Select Pollutant for Seasonal Trend:"),
+                dcc.Dropdown(
+                    id='seasonal-dropdown',
+                    options=[{'label': pollutant, 'value': pollutant} for pollutant in pollutants],
+                    value='PM10'  # Default pollutant
+                ),
+                dcc.Graph(id='seasonal-graph')
+            ])
+        ]),
+
         dcc.Tab(label='Forecast chart of Pollutants', children=[
             html.Div([
                 html.Label("Select Pollutant for Line Chart:"),
@@ -116,37 +138,45 @@ app.layout = html.Div([
                     value='PM10'  # Default to "All"
                 ),
                 dcc.Graph(id='forecast-graph')
-            ]),
+            ])
         ]),
+
         dcc.Tab(label='Cig chart of Pollutants', children=[
             html.Div([
-            dcc.Dropdown(
+                dcc.Dropdown(
                     id='month-dropdown',
-                    options=[{'label': 'All Months', 'value': 'all'}] + [{'label': month_name, 'value': i} for i, month_name in enumerate([
-                'January', 'February', 'March', 'April', 'May', 'June', 
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ], start=1)
-        ],
-        value='all'  # Default: "All Months"
-    ),
-    html.Label("Select Year:"),
-    dcc.Dropdown(
-        id='year-dropdown',
-        options=[{'label': str(year), 'value': year} for year in cig_aggregated_data['year'].unique()],
-        value=cig_aggregated_data['year'].unique()[0]  # Default: First available year
-    ),
-    dcc.Graph(id='cigarette-graph')
-]),
-]), ]), ])
-
+                    options=[{'label': 'All Months', 'value': 'all'}] + 
+                            [{'label': month_name, 'value': i} for i, month_name in enumerate([
+                                'January', 'February', 'March', 'April', 'May', 'June', 
+                                'July', 'August', 'September', 'October', 'November', 'December'
+                            ], start=1)
+                    ],
+                    value='all'  # Default: "All Months"
+                ),
+                html.Label("Select Year:"),
+                dcc.Dropdown(
+                    id='year-dropdown',
+                    options=[{'label': str(year), 'value': year} for year in cig_aggregated_data['year'].unique()],
+                    value=cig_aggregated_data['year'].unique()[0]  # Default: First available year
+                ),
+                dcc.Graph(id='cigarette-graph')
+            ])
+        ])
+    ])
+])
 # Callback to update the map based on dropdown selection
 @app.callback(
     dash.dependencies.Output('map-graph', 'figure'),
     [dash.dependencies.Input('map-dropdown', 'value')]
 )
 def update_map(selected_pollutant):
+    aggregated_data = station_data.groupby(['name', 'lat', 'lon', 'year']).agg({selected_pollutant: 'mean'}).reset_index()
+    
+    min_val = aggregated_data[selected_pollutant].min()
+    max_val = aggregated_data[selected_pollutant].max()
+
     fig = px.scatter_map(
-        station_data,
+        aggregated_data,
         lat="lat",
         lon="lon",
         color=selected_pollutant,
@@ -159,7 +189,7 @@ def update_map(selected_pollutant):
         (0.5, "#F4A259"),  # Medium values are orange
         (1.0, "#D7263D")  # High values are dark red
     ],
-    range_color=(0, 50)  # Adjust range to fit pollutant levels
+    range_color=(min_val, max_val)  # Adjust range to fit pollutant levels
     )
     fig.update_layout(height=900)
     return fig
@@ -167,28 +197,50 @@ def update_map(selected_pollutant):
 # Callback to update the line chart based on dropdown selection
 @app.callback(
     dash.dependencies.Output('line-graph', 'figure'),
-    [dash.dependencies.Input('line-dropdown', 'value')]
+    [dash.dependencies.Input('line-dropdown', 'value'),
+     dash.dependencies.Input('view-dropdown', 'value')]
 )
-def update_line_chart(selected_pollutant):
-    if selected_pollutant == 'All':
-        # Show all pollutants in the same chart
-        fig = px.line(
-            plot_data,
-            x='year',
-            y='Percentage',
-            color='Pollutant',
-            title="Yearly Change in Pollutant Levels (Baseline = 100%)",
-            labels={'year': 'Year', 'Percentage': 'Percentage of Baseline (100%)'}
-        )
-    else:
-        # Show only the selected pollutant
-        fig = px.line(
-            average_data,
-            x='year',
-            y=f'{selected_pollutant}_percentage',
-            title=f"Yearly Change in {selected_pollutant} Levels (Baseline = 100%)",
-            labels={'year': 'Year', f'{selected_pollutant}_percentage': 'Percentage of Baseline (100%)'}
-        )
+def update_line_chart(selected_pollutant, selected_view):
+    if selected_view == "Percentage":
+        if selected_pollutant == 'All':
+            # Show all pollutants in the same chart (percentage view)
+            fig = px.line(
+                plot_data,
+                x='year',
+                y='Percentage',
+                color='Pollutant',
+                title="Yearly Change in Pollutant Levels (Baseline = 100%)",
+                labels={'year': 'Year', 'Percentage': 'Percentage of Baseline (100%)'}
+            )
+        else:
+            # Show selected pollutant as percentage
+            fig = px.line(
+                average_data,
+                x='year',
+                y=f'{selected_pollutant}_percentage',
+                title=f"Yearly Change in {selected_pollutant} Levels (Baseline = 100%)",
+                labels={'year': 'Year', f'{selected_pollutant}_percentage': 'Percentage of Baseline (100%)'}
+            )
+    else:  # If "Concentration" is selected
+        if selected_pollutant == 'All':
+            # Show all pollutants in their raw concentration levels
+            fig = px.line(
+                average_data.melt(id_vars=['year'], value_vars=pollutants, var_name='Pollutant', value_name='Concentration'),
+                x='year',
+                y='Concentration',
+                color='Pollutant',
+                title="Yearly Change in Pollutant Concentrations",
+                labels={'year': 'Year', 'Concentration': 'Pollutant Concentration (µg/m³)'}
+            )
+        else:
+            # Show selected pollutant in concentration format
+            fig = px.line(
+                average_data,
+                x='year',
+                y=selected_pollutant,
+                title=f"Yearly Change in {selected_pollutant} Levels (Concentration)",
+                labels={'year': 'Year', selected_pollutant: f'{selected_pollutant} Concentration (µg/m³)'}
+            )
 
     fig.update_layout(transition_duration=500)
     fig.update_layout(showlegend=False)
@@ -332,7 +384,40 @@ def update_graph(selected_month, selected_year):
 
     return fig
 
+@app.callback(
+    dash.dependencies.Output('seasonal-graph', 'figure'),
+    [dash.dependencies.Input('seasonal-dropdown', 'value')]
+)
+def update_seasonal_chart(selected_pollutant):
+    # Group data by year and month, then compute the monthly average
+    seasonal_data = station_data.groupby(['year', 'month'])[selected_pollutant].mean().reset_index()
+    
+    min_val = seasonal_data[selected_pollutant].min()
+    max_val = seasonal_data[selected_pollutant].max()
 
+
+    fig = px.line(
+        seasonal_data,
+        x='month',
+        y=selected_pollutant,
+        color='year',
+        animation_frame="year",
+        markers=True,  # Makes points visible
+        title=f"Seasonal Pattern of {selected_pollutant} Concentration Over the Years",
+        labels={'month': 'Month', selected_pollutant: f'{selected_pollutant} Concentration (µg/m³)', 'year': 'Year'}
+    )
+
+    fig.update_layout(
+        yaxis=dict(range=[min_val * 0.9, max_val * 1.1]),  # Adding buffer to avoid tight limits
+        xaxis=dict(tickmode='array', tickvals=list(range(1, 13)), ticktext=[
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ]),
+        height=900,
+        showlegend=False
+    )
+    
+    return fig
 
 # Run the app
 if __name__ == '__main__':
