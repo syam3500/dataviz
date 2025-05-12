@@ -33,4 +33,4 @@ averaged_data = combined_data.groupby(['name', 'day', 'year', 'month']).mean(num
 # Convert PM25 to cigarette equivalents per day
 averaged_data['Cigarettes'] = averaged_data['PM25'] / 22
 
-averaged_data.to_csv("/Users/misak/Documents/Master/10_Visualisation in Data Science/Data/avg_data_day.csv", index=True)  # Exclude row indices
+averaged_data.to_csv("avg_data_day.csv", index=True)  # Exclude row indices
