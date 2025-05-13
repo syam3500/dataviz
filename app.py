@@ -34,7 +34,7 @@ merged = station_data.merge(metadata, on="station_clean", how="left")
 
 # Aggregate data by station and month
 cig_aggregated_data = (
-    station_data.groupby(["name", "month", "year"])
+    merged.groupby(["NOM_TIPO", "year"])
     .agg({"Cigarettes": "mean"})
     .reset_index()
 )
@@ -158,6 +158,52 @@ app.layout = html.Div(
                             ]
                         )
                     ],
+                ), 
+                dcc.Tab(
+                    label="Pollutants in Area's of Madrid",
+                    children=[
+                        html.Div(
+                            [
+                                html.Label("Select Pollutant:"),
+                                dcc.Dropdown(
+                                    id="station-type-pollutant-dropdown",
+                                    options=[
+                                        {"label": pollutant, "value": pollutant}
+                                        for pollutant in pollutants
+                                        if pollutant
+                                        not in [
+                                            "CO",
+                                            "PM10",
+                                        ]  # Exclude CO and PM10 bcs it was giving errors.
+                                    ],
+                                    value="BEN",
+                                ),
+                                dcc.Graph(id="station-type-bar-graph"),
+                            ]
+                        )
+                    ],
+                ),
+                
+                dcc.Tab(
+                    label="Cig chart of Pollutants",
+                    children=[
+                        html.Div(
+                            [
+                                html.Label("Select Year:"),
+                                dcc.Dropdown(
+                                    id="year-dropdown",
+                                    options=[
+                                        {"label": str(year), "value": year}
+                                        for year in cig_aggregated_data["year"].unique()
+                                    ],
+                                    value=cig_aggregated_data["year"].unique()[
+                                        -1
+                                    ],  # Default: Last available year
+                                ),
+                                dcc.Graph(id="cigarette-graph"),
+                            ]
+                        )
+                    ],
                 ),
                 dcc.Tab(
                     label="Line Chart of Pollutants",
@@ -232,76 +278,6 @@ app.layout = html.Div(
                         )
                     ],
                 ),
-                dcc.Tab(
-                    label="Cig chart of Pollutants",
-                    children=[
-                        html.Div(
-                            [
-                                dcc.Dropdown(
-                                    id="month-dropdown",
-                                    options=[{"label": "All Months", "value": "all"}]
-                                    + [
-                                        {"label": month_name, "value": i}
-                                        for i, month_name in enumerate(
-                                            [
-                                                "January",
-                                                "February",
-                                                "March",
-                                                "April",
-                                                "May",
-                                                "June",
-                                                "July",
-                                                "August",
-                                                "September",
-                                                "October",
-                                                "November",
-                                                "December",
-                                            ],
-                                            start=1,
-                                        )
-                                    ],
-                                    value="all",  # Default: "All Months"
-                                ),
-                                html.Label("Select Year:"),
-                                dcc.Dropdown(
-                                    id="year-dropdown",
-                                    options=[
-                                        {"label": str(year), "value": year}
-                                        for year in cig_aggregated_data["year"].unique()
-                                    ],
-                                    value=cig_aggregated_data["year"].unique()[
-                                        0
-                                    ],  # Default: First available year
-                                ),
-                                dcc.Graph(id="cigarette-graph"),
-                            ]
-                        )
-                    ],
-                ),
-                dcc.Tab(
-                    label="Pollutants in Area's of Madrid",
-                    children=[
-                        html.Div(
-                            [
-                                html.Label("Select Pollutant:"),
-                                dcc.Dropdown(
-                                    id="station-type-pollutant-dropdown",
-                                    options=[
-                                        {"label": pollutant, "value": pollutant}
-                                        for pollutant in pollutants
-                                        if pollutant
-                                        not in [
-                                            "CO",
-                                            "PM10",
-                                        ]  # Exclude CO and PM10 bcs it was giving errors.
-                                    ],
-                                    value="PM25",
-                                ),
-                                dcc.Graph(id="station-type-bar-graph"),
-                            ]
-                        )
-                    ],
-                ),
             ]
         ),
     ]
@@ -338,6 +314,7 @@ def update_map(selected_pollutant):
             (1.0, "#D7263D"),  # High values are dark red
         ],
         range_color=(min_val, max_val),  # Adjust range to fit pollutant levels
+        map_style="carto-positron"
     )
     fig.update_layout(height=600)
     return fig
@@ -375,7 +352,7 @@ def update_line_chart(selected_pollutant, selected_view):
                         textfont=dict(
                             color=color, size=12
                         ),  # Set text color to match line
-                        showlegend=False,
+                        showlegend=False
                     )
                 )
         else:
@@ -386,7 +363,7 @@ def update_line_chart(selected_pollutant, selected_view):
                 y=f"{selected_pollutant}_percentage",
                 labels={
                     "year": "Year",
-                    f"{selected_pollutant}_percentage": r"% of Baseline (100%)",
+                    f"{selected_pollutant}_percentage": r"Percentage of Baseline (100%)",
                 },
             )
             fig.update_traces(line_color="rgb(136, 204, 238)")
@@ -565,25 +542,14 @@ def update_forecast(selected_pollutant):
 @app.callback(
     dash.dependencies.Output("cigarette-graph", "figure"),
     [
-        dash.dependencies.Input("month-dropdown", "value"),
-        dash.dependencies.Input("year-dropdown", "value"),
+        dash.dependencies.Input("year-dropdown", "value")
     ],
 )
-def update_graph(selected_month, selected_year):
-    # Filter data based on selected year and month
-    if selected_month == "all":  # If "All Months" is selected
-        filtered_data = cig_aggregated_data[
-            cig_aggregated_data["year"] == selected_year
-        ]
-    else:  # If a specific month is selected
-        filtered_data = cig_aggregated_data[
-            (cig_aggregated_data["month"] == selected_month)
-            & (cig_aggregated_data["year"] == selected_year)
-        ]
-
-    x_coords = filtered_data["month"]  # Months for x-axis
-    y_coords = filtered_data["name"]  # Station names for y-axis
-    values = filtered_data["Cigarettes"]  # Cigarette equivalents for hover and text
+def update_graph(selected_year):
+    cig_year = cig_aggregated_data[cig_aggregated_data["year"] == selected_year]
+    x_coords = cig_year["year"]  # Year for x-axis
+    y_coords = cig_year["NOM_TIPO"]  # Type for y-axis
+    values = cig_year["Cigarettes"]  # Cigarette equivalents for hover and text
 
     # Create a figure
     fig = go.Figure()
@@ -591,16 +557,14 @@ def update_graph(selected_month, selected_year):
     # Add text annotations for rounded values
     fig.add_trace(
         go.Scatter(
-            x=x_coords,
+            x=[selected_year] * len(y_coords),
             y=y_coords,
             mode="text",  # Display text annotations
             text=values.map(lambda x: f"{x:.2f}"),  # Round values and convert to string
             textfont=dict(size=12, color="black"),
-            name=f"{'All Months' if selected_month == 'all' else f'Month {selected_month}'}, Year {selected_year}",
+            name=f"Year:{selected_year}",
             textposition="bottom center",
             hovertemplate=(
-                "Station: %{y}<br>"
-                "Month: %{x}<br>"
                 "Average Daily Cigarette Equivalent : %{text}<extra></extra>"
             ),
         )
@@ -612,11 +576,11 @@ def update_graph(selected_month, selected_year):
         fig.add_layout_image(
             dict(
                 source=image_url,
-                x=x_coords.iloc[i],  # Month as X-coordinate
+                x=x_coords.iloc[i],  # Year as X-coordinate
                 y=y_coords.iloc[i],  # Station name as Y-coordinate
                 xref="x",
                 yref="y",
-                sizex=value / global_max_value * 2,  # Use global max for uniform sizing
+                sizex=value / global_max_value,  # Use global max for uniform sizing
                 sizey=1,
                 xanchor="center",
                 yanchor="bottom",
@@ -626,33 +590,14 @@ def update_graph(selected_month, selected_year):
 
     # Update layout
     fig.update_layout(
-        title=f"Cigarette Comparison for {'All Months' if selected_month == 'all' else f'Month {selected_month}'}, Year {selected_year}",
-        xaxis=dict(
-            title="Month",
-            tickvals=list(range(1, 13)),
-            ticktext=[
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-            ],
-            showgrid=False,
-        ),  # Month names as x-axis labels
-        yaxis=dict(
-            title="Station Name",
-            showgrid=False,
-        ),
-        height=900,
+        title=f"Cigarette Comparison for {selected_year}",
+        height=700,
         showlegend=False,
         plot_bgcolor="white",  # Set background color to white
+        xaxis=dict(
+        showticklabels=False,  # Hides tick labels on the x-axis
+        title=None,  # Removes x-axis title
+    )
     )
 
     return fig
@@ -712,6 +657,7 @@ def update_seasonal_chart(selected_pollutant):
         showlegend=False,
         plot_bgcolor="white",  # Set background color to white
     )
+    fig.update_layout(transition_duration=500)
 
     return fig
 
@@ -724,7 +670,8 @@ def update_station_type_bar_chart(selected_pollutant):
     merged[selected_pollutant] = pd.to_numeric(
         merged[selected_pollutant], errors="coerce"
     )
-    grouped = merged.groupby("NOM_TIPO")[selected_pollutant].mean().reset_index()
+    # Added grouping by year
+    grouped = merged.groupby(["NOM_TIPO", "year"])[selected_pollutant].mean().reset_index()    
 
     # I wanted red to be assigned to traffiic bar:
     custom_safe_colors = ["#88CCEE", "#DDCC77", "#CC6677"]  # blue, yellow, red
@@ -740,6 +687,7 @@ def update_station_type_bar_chart(selected_pollutant):
         },
         color="NOM_TIPO",
         color_discrete_sequence=custom_safe_colors,
+        animation_frame="year"
     )
 
     fig.update_layout(
@@ -752,6 +700,8 @@ def update_station_type_bar_chart(selected_pollutant):
             ),
         ),
     )
+    fig.update_layout(transition_duration=500)
+
     return fig
 
 
