@@ -14,4 +14,4 @@ Visualisation is available here : https://dataviz-5zhh.onrender.com/
 
 Pollutant thresholds are taken from the Special report 02/2025: Urban pollution in the EU – Cities have cleaner air but are still too noisy, available [here](https://www.eca.europa.eu/en/publications?ref=SR-2025-02).
 
-The Assets folder contains the CSS sheet and the logo of Madrid.
+The `Assets` folder contains the CSS sheet and the logo of Madrid.
