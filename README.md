@@ -10,4 +10,6 @@ Visualisation is available here : https://dataviz-5zhh.onrender.com/
 
 `requirements.txt` Lists the dependencies required to run the app on OnRender.
 
-`informacion_estaciones_red_calidad_aire.csv`: is pulled from website of Madrid to merge stations into areas.
+`informacion_estaciones_red_calidad_aire.csv`: is pulled from website of [Madrid](https://datos.madrid.es/sites/v/index.jsp?vgnextoid=9e42c176313eb410VgnVCM1000000b205a0aRCRD&vgnextchannel=374512b9ace9f310VgnVCM100000171f5a0aRCRD) to merge stations into areas.
+
+Pollutant thresholds are taken from the Special report 02/2025: Urban pollution in the EU – Cities have cleaner air but are still too noisy, available [here](https://www.eca.europa.eu/en/publications?ref=SR-2025-02).
