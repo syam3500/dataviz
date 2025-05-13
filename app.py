@@ -1,3 +1,4 @@
+from turtle import position
 import dash
 from dash import dcc, html
 import pandas as pd
@@ -108,7 +109,35 @@ server = app.server  # for render
 # App layout
 app.layout = html.Div(
     [
-        html.H1("Interactive Pollution Dashboard", style={"textAlign": "center"}),
+        html.Div(
+            [
+                html.Img(
+                    src="/assets/Bandera_de_la_ciudad_de_Madrid.svg",
+                    style={
+                        "height": "60px",
+                        "width": "auto",
+                        "marginRight": "15px",
+                    },
+                    alt="Logo of Madrid",
+                ),
+                html.H1(
+                    "Interactive Pollution Dashboard",
+                    style={
+                        "fontFamily": "Segoe UI, sans-serif",
+                        "fontSize": "40px",
+                        "color": "#2c3e50",
+                        "margin": "0",
+                    },
+                ),
+            ],
+            style={
+                "display": "flex",
+                "alignItems": "center",
+                "justifyContent": "center",
+                "gap": "15px",  # Optional: controls space between items
+                "marginBottom": "20px",
+            },
+        ),
         dcc.Tabs(
             [
                 dcc.Tab(
@@ -116,7 +145,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(
                             [
-                                html.Label("Select Pollutant for Map:"),
+                                html.Label("Select Pollutant:"),
                                 dcc.Dropdown(
                                     id="map-dropdown",
                                     options=[
@@ -135,7 +164,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(
                             [
-                                html.Label("Select Pollutant for Line Chart:"),
+                                html.Label("Select Pollutant:"),
                                 dcc.Dropdown(
                                     id="line-dropdown",
                                     options=[{"label": "All", "value": "All"}]
@@ -145,11 +174,12 @@ app.layout = html.Div(
                                     ],
                                     value="All",  # Default to "All"
                                 ),
+                                html.Label(r"Select Concentration or % change:"),
                                 dcc.Dropdown(
                                     id="view-dropdown",
                                     options=[
                                         {
-                                            "label": "Percentage Change (%)",
+                                            "label": "Percentage Change",
                                             "value": "Percentage",
                                         },
                                         {
@@ -169,7 +199,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(
                             [
-                                html.Label("Select Pollutant for Seasonal Trend:"),
+                                html.Label("Select Pollutant:"),
                                 dcc.Dropdown(
                                     id="seasonal-dropdown",
                                     options=[
@@ -188,7 +218,7 @@ app.layout = html.Div(
                     children=[
                         html.Div(
                             [
-                                html.Label("Select Pollutant for Line Chart:"),
+                                html.Label("Select Pollutant:"),
                                 dcc.Dropdown(
                                     id="forecast-dropdown",
                                     options=[
@@ -309,7 +339,7 @@ def update_map(selected_pollutant):
         ],
         range_color=(min_val, max_val),  # Adjust range to fit pollutant levels
     )
-    fig.update_layout(height=900)
+    fig.update_layout(height=600)
     return fig
 
 
@@ -322,31 +352,41 @@ def update_map(selected_pollutant):
     ],
 )
 def update_line_chart(selected_pollutant, selected_view):
+    color_map = dict(zip(plot_data["Pollutant"].unique(), px.colors.qualitative.Safe))
     if selected_view == "Percentage":
         if selected_pollutant == "All":
             # Show all pollutants in the same chart (percentage view)
-            fig = px.line(
-                plot_data,
-                x="year",
-                y="Percentage",
-                color="Pollutant",
-                color_discrete_sequence=px.colors.qualitative.Safe,
-                title="Yearly Change in Pollutant Levels (Baseline = 100%)",
-                labels={
-                    "year": "Year",
-                    "Percentage": f"% of Baseline (100%)",
-                },
-            )
+            fig = go.Figure()
+            for pollutant in plot_data["Pollutant"].unique():
+                clean_name = pollutant.replace("_percentage", "")
+                clean_name = clean_name.replace("_", "")
+                df_pollutant = plot_data[plot_data["Pollutant"] == pollutant]
+                color = color_map[pollutant]
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=df_pollutant["year"],
+                        y=df_pollutant["Percentage"],
+                        mode="lines+text",
+                        name=clean_name,
+                        line=dict(width=2, color=color),  # Set line color
+                        text=[None] * (len(df_pollutant) - 1) + [clean_name],
+                        textposition="top center",
+                        textfont=dict(
+                            color=color, size=12
+                        ),  # Set text color to match line
+                        showlegend=False,
+                    )
+                )
         else:
             # Show selected pollutant as percentage
             fig = px.line(
                 average_data,
                 x="year",
                 y=f"{selected_pollutant}_percentage",
-                title=f"Yearly Change in {selected_pollutant} Levels (Baseline = 100%)",
                 labels={
                     "year": "Year",
-                    f"{selected_pollutant}_percentage": f"% of Baseline (100%)",
+                    f"{selected_pollutant}_percentage": r"% of Baseline (100%)",
                 },
             )
             fig.update_traces(line_color="rgb(136, 204, 238)")
@@ -376,7 +416,6 @@ def update_line_chart(selected_pollutant, selected_view):
                 average_data,
                 x="year",
                 y=selected_pollutant,
-                title=f"Yearly Change in {selected_pollutant} Levels (Concentration)",
                 labels={
                     "year": "Year",
                     selected_pollutant: f"{selected_pollutant} Concentration (µg/m³)",
@@ -419,7 +458,7 @@ def update_forecast(selected_pollutant):
             x=forecast["ds"],
             y=forecast["yhat"],
             mode="lines",
-            name="Expected Case (Forecast)",
+            name="Fitted line (Forecast)",
             line=dict(
                 color="rgb(136, 204, 238)", width=3
             ),  # Make forecast line thicker
@@ -449,9 +488,10 @@ def update_forecast(selected_pollutant):
         type="line",
         x0=cutoff_date,
         x1=cutoff_date,
-        y0=forecast["yhat"].min(),
-        y1=forecast["yhat"].max(),
-        line=dict(color="blue", dash="dash", width=2),
+        y0=0,
+        y1=1,
+        yref="paper",  # Use the full height of the plotting area
+        line=dict(color="rgb(221, 204, 119)", dash="dash", width=2),
         name="Forecast Start",
     )
 
@@ -463,27 +503,40 @@ def update_forecast(selected_pollutant):
         x1=forecast["ds"].max(),
         y0=threshold,
         y1=threshold,
-        line=dict(color="red", dash="dash", width=2),
-        name=f"Pollution Reference Line ({selected_pollutant})",
+        line=dict(color="rgb(204, 102, 119)", dash="dash", width=2),
+        name=f"Pollution Treshold ({selected_pollutant})",
     )
 
-    # Add an annotation to indicate that data after 2018 is a forecast
+    # Add an annotation to for the threshold line
     fig.add_annotation(
-        x=cutoff_date,
-        y=forecast["yhat"].max(),
-        text="Start of Forecast",
+        x=forecast["ds"].max(),
+        y=threshold,
+        text=f"Pollution Treshold for {selected_pollutant}",
         showarrow=True,
         arrowhead=2,
         arrowsize=1,
         ax=20,
         ay=-30,
-        font=dict(size=12, color="blue"),
+        font=dict(size=12, color="rgb(204, 102, 119)"),
+        align="left",
+    )
+    # Add an annotation to indicate that data after 2018 is a forecast
+    fig.add_annotation(
+        x=cutoff_date,
+        y=0.95,  # Near the top of the graph
+        yref="paper",  # Use paper coordinate for y to access top of plot
+        text="Start of Forecast (2018)",
+        showarrow=True,
+        arrowhead=2,
+        arrowsize=1,
+        ax=20,
+        ay=-30,
+        font=dict(size=12, color="rgb(221, 204, 119)"),
         align="left",
     )
 
     # Update layout for better accessibility and aesthetics
     fig.update_layout(
-        title=f"Forecast of {selected_pollutant} Levels with 95% Confidence Intervals",
         xaxis_title="Date",
         yaxis_title="Pollutant Levels",
         transition_duration=500,
@@ -591,10 +644,15 @@ def update_graph(selected_month, selected_year):
                 "Nov",
                 "Dec",
             ],
+            showgrid=False,
         ),  # Month names as x-axis labels
-        yaxis=dict(title="Station Name"),
+        yaxis=dict(
+            title="Station Name",
+            showgrid=False,
+        ),
         height=900,
         showlegend=False,
+        plot_bgcolor="white",  # Set background color to white
     )
 
     return fig
@@ -619,7 +677,6 @@ def update_seasonal_chart(selected_pollutant):
         y=selected_pollutant,
         animation_frame="year",
         markers=True,  # Makes points visible
-        title=f"Seasonal Pattern of {selected_pollutant} Concentration Over the Years",
         labels={
             "month": "Month",
             selected_pollutant: f"{selected_pollutant} Concentration (µg/m³)",
@@ -669,19 +726,32 @@ def update_station_type_bar_chart(selected_pollutant):
     )
     grouped = merged.groupby("NOM_TIPO")[selected_pollutant].mean().reset_index()
 
+    # I wanted red to be assigned to traffiic bar:
+    custom_safe_colors = ["#88CCEE", "#DDCC77", "#CC6677"]  # blue, yellow, red
+
     fig = px.bar(
         grouped,
         x="NOM_TIPO",
         y=selected_pollutant,
         title=f"Average {selected_pollutant} Concentration in Madrid (2001-2018)",
         labels={
-            "NOM_TIPO": "Station Type",
+            "NOM_TIPO": "Area in madrid",
             selected_pollutant: f"Average {selected_pollutant} (µg/m³)",
         },
         color="NOM_TIPO",
-        color_discrete_sequence=px.colors.qualitative.Safe,
+        color_discrete_sequence=custom_safe_colors,
     )
-    fig.update_layout(height=800, plot_bgcolor="white")
+
+    fig.update_layout(
+        height=600,
+        plot_bgcolor="white",
+        showlegend=False,
+        xaxis=dict(
+            tickfont=dict(
+                size=14,
+            ),
+        ),
+    )
     return fig
 
 
